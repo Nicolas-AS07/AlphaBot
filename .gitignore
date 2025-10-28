@@ -17,6 +17,7 @@ venv/
 
 # Keys / Secrets
 keys/
+service_account.json
 
 # Logs
 logs/
