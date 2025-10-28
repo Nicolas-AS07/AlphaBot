@@ -12,11 +12,14 @@ import gspread
 # --- Autenticação segura usando st.secrets ---
 # As credenciais devem estar em st.secrets["google_service_account"] (formato dict)
 try:
-    sa_info = dict(st.secrets["google_service_account"])
-    credentials = service_account.Credentials.from_service_account_info(sa_info, scopes=[
-        "https://www.googleapis.com/auth/drive.readonly",
-        "https://www.googleapis.com/auth/spreadsheets.readonly"
-    ])
+    # No Streamlit Cloud, st.secrets["google_service_account"] já é um dict pronto para uso
+    credentials = service_account.Credentials.from_service_account_info(
+        st.secrets["google_service_account"],
+        scopes=[
+            "https://www.googleapis.com/auth/drive.readonly",
+            "https://www.googleapis.com/auth/spreadsheets.readonly"
+        ]
+    )
     gc = gspread.authorize(credentials)
 except Exception as e:
     st.error(f"Erro ao autenticar com Google Service Account: {e}")
