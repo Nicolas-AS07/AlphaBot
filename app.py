@@ -1,4 +1,4 @@
-os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"] = json.dumps(service_account_info)
+
 
 
 # ================= INTEGRAÇÃO SEGURA COM GOOGLE SHEETS (STREAMLIT CLOUD) =================
