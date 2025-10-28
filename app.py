@@ -1,3 +1,4 @@
+# Alteração irrelevante para forçar novo commit e push
 
 
 
@@ -7,7 +8,7 @@ import json
 import streamlit as st
 import pandas as pd
 from google.oauth2 import service_account
-import gspread
+
 
 # --- Autenticação segura usando st.secrets ---
 # As credenciais devem estar em st.secrets["google_service_account"] (formato dict)
