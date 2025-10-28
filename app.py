@@ -1,17 +1,15 @@
-# ================= VARIÁVEIS DE CONFIGURAÇÃO DO SECRETS =================
-SHEETS_FOLDER_ID = st.secrets.get("SHEETS_FOLDER_ID", "")
-SHEETS_IDS = st.secrets.get("SHEETS_IDS", "")
-SHEET_RANGE = st.secrets.get("SHEET_RANGE", "A:Z")
-# Alteração irrelevante para forçar novo commit e push
- 
 
-
-# ================= INTEGRAÇÃO SEGURA COM GOOGLE SHEETS (STREAMLIT CLOUD) =================
 import os
 import json
 import streamlit as st
 import pandas as pd
 from google.oauth2 import service_account
+
+# ================= VARIÁVEIS DE CONFIGURAÇÃO DO SECRETS =================
+SHEETS_FOLDER_ID = st.secrets.get("SHEETS_FOLDER_ID", "")
+SHEETS_IDS = st.secrets.get("SHEETS_IDS", "")
+SHEET_RANGE = st.secrets.get("SHEET_RANGE", "A:Z")
+# Alteração irrelevante para forçar novo commit e push
 
 
 # --- Autenticação segura usando st.secrets ---
