@@ -1,3 +1,7 @@
+# ================= VARIÁVEIS DE CONFIGURAÇÃO DO SECRETS =================
+SHEETS_FOLDER_ID = st.secrets.get("SHEETS_FOLDER_ID", "")
+SHEETS_IDS = st.secrets.get("SHEETS_IDS", "")
+SHEET_RANGE = st.secrets.get("SHEET_RANGE", "A:Z")
 # Alteração irrelevante para forçar novo commit e push
  
 
@@ -78,7 +82,8 @@ try:
         sheet_ids = [s['id'] for s in sheets]
         idx = st.sidebar.selectbox("Selecione a planilha:", options=range(len(sheet_names)), format_func=lambda i: sheet_names[i] if i is not None else "", key="sheet_select")
         selected_sheet = sheets[idx]
-except Exception as e:
+
+
     st.sidebar.error(str(e))
     selected_sheet = None
 
