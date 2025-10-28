@@ -154,14 +154,6 @@ if selected_sheet and selected_worksheet:
 # --------- Carregar variáveis de ambiente ---------
 
 
-# --------- Credenciais do Google Service Account ---------
-# Usando JSON direto do Streamlit Secrets
-try:
-    service_account_info = json.loads(st.secrets["GOOGLE_SERVICE_ACCOUNT_JSON"])
-    os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"] = json.dumps(service_account_info)
-except KeyError:
-    st.error("A chave 'GOOGLE_SERVICE_ACCOUNT_JSON' não foi encontrada em st.secrets.")
-    st.stop()
 
 # --------- Função para pegar segredos (prioriza st.secrets) ---------
 def secret_get(key: str, default: str | None = None):
@@ -194,12 +186,6 @@ def secret_get(key: str, default: str | None = None):
         return os.getenv(key, default)
 
 # Disponibiliza credenciais do Google via env para google_service.py
-for _k in ("GOOGLE_SERVICE_ACCOUNT_JSON", "GOOGLE_SERVICE_ACCOUNT_FILE"):
-    try:
-        if _k in st.secrets:  # type: ignore[attr-defined]
-            os.environ[_k] = str(st.secrets[_k])  # type: ignore[index]
-    except Exception:
-        pass
 
 API_KEY = secret_get("GEMINI_API_KEY") or secret_get("GOOGLE_API_KEY")
 DEFAULT_MODEL = secret_get("GEMINI_MODEL", "gemini-2.0-flash-exp")
