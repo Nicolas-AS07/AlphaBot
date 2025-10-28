@@ -1,5 +1,5 @@
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = ""
 os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"] = json.dumps(service_account_info)
+
 
 # ================= INTEGRAÇÃO SEGURA COM GOOGLE SHEETS (STREAMLIT CLOUD) =================
 import os
@@ -95,28 +95,7 @@ if selected_sheet and selected_worksheet:
     except Exception as e:
         st.error(str(e))
 
-# ================= FIM DA INTEGRAÇÃO GOOGLE SHEETS =================
-        sh = gc.open_by_key(spreadsheet_id)
-        return [ws.title for ws in sh.worksheets()]
-    except Exception as e:
-        raise RuntimeError(f"Erro ao listar abas: {e}")
 
-# --- Função cacheada para ler dados de uma aba específica ---
-@st.cache_data(show_spinner="Lendo dados da planilha...")
-def read_sheet_to_df(spreadsheet_id, worksheet_title):
-    try:
-        sh = gc.open_by_key(spreadsheet_id)
-        ws = sh.worksheet(worksheet_title)
-        data = ws.get_all_records()
-        if not data:
-            return pd.DataFrame()
-        return pd.DataFrame(data)
-    except Exception as e:
-        raise RuntimeError(f"Erro ao ler dados da aba '{worksheet_title}': {e}")
-
-# --- Interface Streamlit para seleção e exibição de planilhas ---
-st.sidebar.markdown("---")
-st.sidebar.subheader("Google Sheets (Service Account)")
 
 try:
     sheets = list_google_sheets()
