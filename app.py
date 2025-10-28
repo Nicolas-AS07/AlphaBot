@@ -82,8 +82,7 @@ try:
         sheet_ids = [s['id'] for s in sheets]
         idx = st.sidebar.selectbox("Selecione a planilha:", options=range(len(sheet_names)), format_func=lambda i: sheet_names[i] if i is not None else "", key="sheet_select")
         selected_sheet = sheets[idx]
-
-
+except Exception as e:
     st.sidebar.error(str(e))
     selected_sheet = None
 
@@ -155,7 +154,7 @@ if selected_sheet and selected_worksheet:
 
 
 # --------- Carregar variáveis de ambiente ---------
-load_dotenv()
+
 
 # --------- Credenciais do Google Service Account ---------
 # Usando JSON direto do Streamlit Secrets
@@ -187,7 +186,7 @@ from google_service import (
 )
 
 # --------- Carregar variáveis de ambiente ---------
-load_dotenv()
+
 
 # Carrega segredos (prioriza st.secrets quando disponível)
 def secret_get(key: str, default: str | None = None):
