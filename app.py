@@ -1,27 +1,102 @@
-import os
-import time
-from typing import List, Dict, Any
-import json
-from datetime import datetime
-
-import streamlit as st
-from dotenv import load_dotenv
-import google.generativeai as genai
-import requests
-
-import json, os, streamlit as st
-import streamlit as st
-
-service_account_json = st.secrets["GOOGLE_SERVICE_ACCOUNT_JSON"]
 os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"] = json.dumps(json.loads(service_account_json))
-
-# Carrega credenciais do Streamlit Secrets
-service_account_json = st.secrets["GOOGLE_SERVICE_ACCOUNT_JSON"]
-
-# Converte para dict e coloca na variável de ambiente
-service_account_info = json.loads(service_account_json)
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = ""
 os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"] = json.dumps(service_account_info)
+
+# ================= INTEGRAÇÃO SEGURA COM GOOGLE SHEETS (STREAMLIT CLOUD) =================
+import os
+import json
+import streamlit as st
+import pandas as pd
+from google.oauth2 import service_account
+import gspread
+
+# --- Autenticação segura usando st.secrets ---
+# As credenciais devem estar em st.secrets["google_service_account"] (formato dict)
+try:
+    sa_info = dict(st.secrets["google_service_account"])
+    credentials = service_account.Credentials.from_service_account_info(sa_info, scopes=[
+        "https://www.googleapis.com/auth/drive.readonly",
+        "https://www.googleapis.com/auth/spreadsheets.readonly"
+    ])
+    gc = gspread.authorize(credentials)
+except Exception as e:
+    st.error(f"Erro ao autenticar com Google Service Account: {e}")
+    st.stop()
+
+# --- Função cacheada para listar planilhas disponíveis ---
+@st.cache_data(show_spinner="Carregando lista de planilhas...")
+def list_google_sheets():
+    try:
+        # Retorna todas as planilhas acessíveis pela service account
+        return gc.list_spreadsheet_files()
+    except Exception as e:
+        raise RuntimeError(f"Erro ao listar planilhas: {e}")
+
+# --- Função cacheada para obter abas de uma planilha ---
+@st.cache_data(show_spinner="Carregando abas...")
+def get_worksheet_titles(spreadsheet_id):
+    try:
+        sh = gc.open_by_key(spreadsheet_id)
+        return [ws.title for ws in sh.worksheets()]
+    except Exception as e:
+        raise RuntimeError(f"Erro ao listar abas: {e}")
+
+# --- Função cacheada para ler dados de uma aba específica ---
+@st.cache_data(show_spinner="Lendo dados da planilha...")
+def read_sheet_to_df(spreadsheet_id, worksheet_title):
+    try:
+        sh = gc.open_by_key(spreadsheet_id)
+        ws = sh.worksheet(worksheet_title)
+        data = ws.get_all_records()
+        if not data:
+            return pd.DataFrame()
+        return pd.DataFrame(data)
+    except Exception as e:
+        raise RuntimeError(f"Erro ao ler dados da aba '{worksheet_title}': {e}")
+
+# --- Interface Streamlit para seleção e exibição de planilhas ---
+st.sidebar.markdown("---")
+st.sidebar.subheader("Google Sheets (Service Account)")
+
+try:
+    sheets = list_google_sheets()
+    if not sheets:
+        st.sidebar.warning("Nenhuma planilha encontrada para a Service Account.")
+        selected_sheet = None
+    else:
+        sheet_names = [f"{s['name']} (ID: {s['id']})" for s in sheets]
+        sheet_ids = [s['id'] for s in sheets]
+        idx = st.sidebar.selectbox("Selecione a planilha:", options=range(len(sheet_names)), format_func=lambda i: sheet_names[i] if i is not None else "", key="sheet_select")
+        selected_sheet = sheets[idx]
+except Exception as e:
+    st.sidebar.error(str(e))
+    selected_sheet = None
+
+selected_worksheet = None
+if selected_sheet:
+    try:
+        worksheet_titles = get_worksheet_titles(selected_sheet['id'])
+        if not worksheet_titles:
+            st.sidebar.warning("Nenhuma aba encontrada nesta planilha.")
+        else:
+            selected_worksheet = st.sidebar.selectbox("Selecione a aba:", worksheet_titles, key="worksheet_select")
+    except Exception as e:
+        st.sidebar.error(str(e))
+
+# --- Exibe DataFrame da aba selecionada ---
+df = None
+if selected_sheet and selected_worksheet:
+    try:
+        df = read_sheet_to_df(selected_sheet['id'], selected_worksheet)
+        st.subheader(f"Planilha: {selected_sheet['name']} | Aba: {selected_worksheet}")
+        if df is not None and not df.empty:
+            st.dataframe(df, use_container_width=True)
+        else:
+            st.info("Aba selecionada está vazia.")
+    except Exception as e:
+        st.error(str(e))
+
+# ================= FIM DA INTEGRAÇÃO GOOGLE SHEETS =================
 
 
 # --------- Carregar variáveis de ambiente ---------
