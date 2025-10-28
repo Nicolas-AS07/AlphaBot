@@ -1,5 +1,5 @@
 # Alteração irrelevante para forçar novo commit e push
-
+ 
 
 
 # ================= INTEGRAÇÃO SEGURA COM GOOGLE SHEETS (STREAMLIT CLOUD) =================
@@ -21,39 +21,46 @@ try:
             "https://www.googleapis.com/auth/spreadsheets.readonly"
         ]
     )
-    gc = gspread.authorize(credentials)
+
+    from googleapiclient.discovery import build
+    sheets_service = build('sheets', 'v4', credentials=credentials)
 except Exception as e:
     st.error(f"Erro ao autenticar com Google Service Account: {e}")
     st.stop()
 
-# --- Função cacheada para listar planilhas disponíveis ---
-@st.cache_data(show_spinner="Carregando lista de planilhas...")
-def list_google_sheets():
-    try:
-        # Retorna todas as planilhas acessíveis pela service account
-        return gc.list_spreadsheet_files()
-    except Exception as e:
-        raise RuntimeError(f"Erro ao listar planilhas: {e}")
 
-# --- Função cacheada para obter abas de uma planilha ---
-@st.cache_data(show_spinner="Carregando abas...")
+# Função para listar planilhas acessíveis (exemplo: IDs conhecidas ou busca por API)
+def list_google_sheets():
+    # Aqui você pode retornar uma lista de IDs/nome de planilhas conhecidas ou implementar busca por API se necessário
+    # Exemplo simples:
+    return [
+        # {"id": "SUA_SHEET_ID", "name": "Nome da Planilha"},
+    ]
+
+
+# Função para obter abas de uma planilha
 def get_worksheet_titles(spreadsheet_id):
     try:
-        sh = gc.open_by_key(spreadsheet_id)
-        return [ws.title for ws in sh.worksheets()]
+        spreadsheet = sheets_service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+        return [sheet['properties']['title'] for sheet in spreadsheet['sheets']]
     except Exception as e:
         raise RuntimeError(f"Erro ao listar abas: {e}")
 
-# --- Função cacheada para ler dados de uma aba específica ---
-@st.cache_data(show_spinner="Lendo dados da planilha...")
-def read_sheet_to_df(spreadsheet_id, worksheet_title):
+
+# Função para ler dados de uma aba específica como DataFrame
+def read_sheet_to_df(spreadsheet_id, worksheet_title, range_notation="A:Z"):
     try:
-        sh = gc.open_by_key(spreadsheet_id)
-        ws = sh.worksheet(worksheet_title)
-        data = ws.get_all_records()
-        if not data:
+        range_full = f"'{worksheet_title}'!{range_notation}"
+        result = sheets_service.spreadsheets().values().get(
+            spreadsheetId=spreadsheet_id,
+            range=range_full
+        ).execute()
+        values = result.get('values', [])
+        if not values:
             return pd.DataFrame()
-        return pd.DataFrame(data)
+        headers = values[0]
+        data_rows = values[1:]
+        return pd.DataFrame(data_rows, columns=headers)
     except Exception as e:
         raise RuntimeError(f"Erro ao ler dados da aba '{worksheet_title}': {e}")
 
