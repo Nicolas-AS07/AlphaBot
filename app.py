@@ -159,13 +159,14 @@ if selected_sheet and selected_worksheet:
 def secret_get(key: str, default: str | None = None):
     return st.secrets.get(key, os.getenv(key, default))  # type: ignore[attr-defined]
 
-# --------- Chaves da API ---------
-API_KEY = secret_get("GEMINI_API_KEY") or secret_get("GOOGLE_API_KEY")
-DEFAULT_MODEL = secret_get("GEMINI_MODEL", "gemini-2.0-flash-exp")
-DEFAULT_TEMPERATURE = float(secret_get("GEMINI_TEMPERATURE", "0.7"))
-ABACUS_API_KEY = secret_get("ABACUS_API_KEY")
-ABACUS_MODEL = secret_get("ABACUS_MODEL", "gemini-2.0-flash-exp")
-GOOGLE_DRIVE_FOLDER_ID = secret_get("GOOGLE_DRIVE_FOLDER_ID", "")
+
+# --------- Chaves da API (ajustado para ler do secrets conforme solicitado) ---------
+ABACUS_API_KEY = st.secrets.get("ABACUS_API_KEY", "")
+MODEL_NAME = st.secrets.get("MODEL_NAME", "gemini-2.5-pro")
+DEFAULT_MODEL = MODEL_NAME  # Usar MODEL_NAME como modelo padrão
+API_KEY = st.secrets.get("GEMINI_API_KEY") or st.secrets.get("GOOGLE_API_KEY")
+DEFAULT_TEMPERATURE = float(st.secrets.get("GEMINI_TEMPERATURE", "0.7"))
+GOOGLE_DRIVE_FOLDER_ID = st.secrets.get("GOOGLE_DRIVE_FOLDER_ID", "")
 
 # --------- Importa serviço do Google Sheets ---------
 from google_service import (
