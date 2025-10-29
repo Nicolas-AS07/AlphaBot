@@ -1,70 +1,84 @@
-
-import os
-import json
+# --- Integração SheetsLoader e config centralizada (padrão Quasar Analytics) ---
 import streamlit as st
-import pandas as pd
-from google.oauth2 import service_account
+from sheets_loader import SheetsLoader
+import config
+from datetime import datetime
+import time
 
-# ================= VARIÁVEIS DE CONFIGURAÇÃO DO SECRETS =================
-SHEETS_FOLDER_ID = st.secrets.get("SHEETS_FOLDER_ID", "")
-SHEETS_IDS = st.secrets.get("SHEETS_IDS", "")
-SHEET_RANGE = st.secrets.get("SHEET_RANGE", "A:Z")
-# Alteração irrelevante para forçar novo commit e push
+# Inicializa sessão e loader
+if "sheets_loader" not in st.session_state:
+    st.session_state.sheets_loader = SheetsLoader()
+    st.session_state.sheets_last_loaded = None
+    st.session_state.sheets_status = {"sheets": 0, "rows": 0}
 
-
-# --- Autenticação segura usando st.secrets ---
-# As credenciais devem estar em st.secrets["google_service_account"] (formato dict)
-try:
-    # No Streamlit Cloud, st.secrets["google_service_account"] já é um dict pronto para uso
-    credentials = service_account.Credentials.from_service_account_info(
-        st.secrets["google_service_account"],
-        scopes=[
-            "https://www.googleapis.com/auth/drive.readonly",
-            "https://www.googleapis.com/auth/spreadsheets.readonly"
-        ]
-    )
-
-    from googleapiclient.discovery import build
-    sheets_service = build('sheets', 'v4', credentials=credentials)
-except Exception as e:
-    st.error(f"Erro ao autenticar com Google Service Account: {e}")
-    st.stop()
-
-
-# Função para listar planilhas acessíveis (exemplo: IDs conhecidas ou busca por API)
-def list_google_sheets():
-    # Aqui você pode retornar uma lista de IDs/nome de planilhas conhecidas ou implementar busca por API se necessário
-    # Exemplo simples:
-    return [
-        # {"id": "SUA_SHEET_ID", "name": "Nome da Planilha"},
-    ]
-
-
-# Função para obter abas de uma planilha
-def get_worksheet_titles(spreadsheet_id):
+# TTL para recarregar planilhas (padrão 60s)
+st.session_state.setdefault("sheets_ttl_enabled", False)
+st.session_state.setdefault("sheets_ttl_seconds", 60)
+last_loaded_ts = st.session_state.get("sheets_last_loaded_ts")
+should_reload = True
+if st.session_state["sheets_ttl_enabled"] and last_loaded_ts:
     try:
-        spreadsheet = sheets_service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
-        return [sheet['properties']['title'] for sheet in spreadsheet['sheets']]
-    except Exception as e:
-        raise RuntimeError(f"Erro ao listar abas: {e}")
+        age = time.time() - float(last_loaded_ts)
+        if age < int(st.session_state["sheets_ttl_seconds"]):
+            should_reload = False
+    except Exception:
+        should_reload = True
 
-
-# Função para ler dados de uma aba específica como DataFrame
-def read_sheet_to_df(spreadsheet_id, worksheet_title, range_notation="A:Z"):
+# Carrega planilhas se necessário
+loader = st.session_state.sheets_loader
+if loader.is_configured():
     try:
-        range_full = f"'{worksheet_title}'!{range_notation}"
-        result = sheets_service.spreadsheets().values().get(
-            spreadsheetId=spreadsheet_id,
-            range=range_full
-        ).execute()
-        values = result.get('values', [])
-        if not values:
-            return pd.DataFrame()
-        headers = values[0]
-        data_rows = values[1:]
-        return pd.DataFrame(data_rows, columns=headers)
+        if should_reload:
+            n_sheets, n_rows = loader.load_all()
+            st.session_state.sheets_status = {"sheets": n_sheets, "rows": n_rows}
+            st.session_state.sheets_last_loaded = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            st.session_state.sheets_last_loaded_ts = time.time()
+        else:
+            st.session_state.sheets_status = st.session_state.get("sheets_status", {"sheets": 0, "rows": 0})
     except Exception as e:
-        raise RuntimeError(f"Erro ao ler dados da aba '{worksheet_title}': {e}")
+        st.warning(f"Falha ao carregar planilhas: {e}")
+else:
+    st.session_state.sheets_status = {"sheets": 0, "rows": 0}
+
+# Sidebar: diagnóstico e recarga
+with st.sidebar:
+    st.markdown("### 📚 Dados carregados")
+    status = loader.status() if loader else {}
+    st.metric("Linhas carregadas", f"{sum(status.get('loaded', {}).values()):,}".replace(",", "."))
+    st.caption(f"Planilhas: {status.get('sheets_count', 0)} · Abas: {status.get('worksheets_count', 0)}")
+    if st.session_state.sheets_last_loaded:
+        st.caption(f"Última atualização: {st.session_state.sheets_last_loaded}")
+    st.divider()
+    sa_email = config.get_service_account_email()
+    if sa_email:
+        st.info(f"Compartilhe a pasta do Drive com a Service Account: **{sa_email}**", icon="ℹ️")
+    else:
+        st.info("Defina os segredos da Service Account no Streamlit (chave `google_service_account`).", icon="ℹ️")
+    st.markdown("#### ⚙️ Recarga automática (TTL)")
+    st.checkbox("Habilitar recarga automática", key="sheets_ttl_enabled")
+    st.number_input("TTL (segundos)", min_value=10, max_value=3600, step=10, key="sheets_ttl_seconds")
+    if st.session_state["sheets_ttl_enabled"] and st.session_state.get("sheets_last_loaded_ts"):
+        try:
+            ttl_secs = int(st.session_state.get("sheets_ttl_seconds", 60))
+            eta = max(0, ttl_secs - int(time.time() - float(st.session_state["sheets_last_loaded_ts"])))
+            st.caption(f"Próxima recarga automática em ~{eta}s")
+        except Exception:
+            pass
+    st.divider()
+    if loader and st.button("Recarregar planilhas agora"):
+        try:
+            n_sheets, n_rows = loader.load_all()
+            st.session_state.sheets_status = {"sheets": n_sheets, "rows": n_rows}
+            st.session_state.sheets_last_loaded = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            st.session_state.sheets_last_loaded_ts = time.time()
+            st.success("Planilhas recarregadas.")
+            st.rerun()
+        except Exception as e:
+            st.error(f"Falha ao recarregar: {e}")
+    st.divider()
+    with st.expander("Diagnóstico (detalhes)"):
+        st.json(status)
+
 
 # --- Interface Streamlit para seleção e exibição de planilhas ---
 st.sidebar.markdown("---")
